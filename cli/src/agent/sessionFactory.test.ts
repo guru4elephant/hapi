@@ -40,6 +40,10 @@ vi.mock('@/runner/controlClient', () => ({
     getInstalledCliMtimeMs: () => 1_700_000_000_000,
 }))
 
+vi.mock('@/runner/envProfiles', () => ({
+    listEnvProfiles: () => ['alpha', 'proxy']
+}))
+
 vi.mock('@/persistence', () => ({
     readSettings: readSettingsMock
 }))
@@ -638,5 +642,46 @@ describe('buildMachineMetadata runner-only capabilities', () => {
         const metadata = buildMachineMetadata({ asRunner: true })
         expect(metadata.capabilities).toEqual(expect.arrayContaining(['stop-runner']))
         expect(metadata.supervisedRestart).toBe(false)
+    })
+})
+
+describe('env profile metadata', () => {
+    const originalProfile = process.env.HAPI_ENV_PROFILE
+
+    afterEach(() => {
+        if (originalProfile === undefined) {
+            delete process.env.HAPI_ENV_PROFILE
+        } else {
+            process.env.HAPI_ENV_PROFILE = originalProfile
+        }
+    })
+
+    it('advertises env profile names only for runner machine metadata', () => {
+        expect(buildMachineMetadata().envProfiles).toBeUndefined()
+        expect(buildMachineMetadata({ asRunner: true }).envProfiles).toEqual(['alpha', 'proxy'])
+    })
+
+    it('records the env profile the runner spawned the session with', () => {
+        process.env.HAPI_ENV_PROFILE = 'proxy'
+        const metadata = buildSessionMetadata({
+            flavor: 'claude',
+            startedBy: 'runner',
+            workingDirectory: '/tmp/project',
+            machineId: 'machine-1',
+            now: 123
+        })
+        expect(metadata.envProfile).toBe('proxy')
+    })
+
+    it('omits envProfile when the runner set it to empty', () => {
+        process.env.HAPI_ENV_PROFILE = ''
+        const metadata = buildSessionMetadata({
+            flavor: 'claude',
+            startedBy: 'runner',
+            workingDirectory: '/tmp/project',
+            machineId: 'machine-1',
+            now: 123
+        })
+        expect(metadata.envProfile).toBeUndefined()
     })
 })

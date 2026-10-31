@@ -38,6 +38,7 @@ import { cleanupRunnerState, getInstalledCliMtimeMs, isRunnerRunningCurrentlyIns
 import { startRunnerControlServer } from './controlServer';
 import { createWorktree, removeWorktree, type WorktreeInfo } from './worktree';
 import { validateWorkspaceDirectory } from './validateWorkspaceDirectory';
+import { buildSpawnChildEnv, loadEnvProfile } from './envProfiles';
 import { join } from 'path';
 import { buildMachineMetadata } from '@/agent/sessionFactory';
 import { resolveWorkspaceRoots } from '@/utils/workspaceRoot';
@@ -650,6 +651,26 @@ export async function startRunner(options: { workspaceRoots?: string[] } = {}): 
           childStarted: false,
         };
       }
+      // Load before any directory/worktree side effects so a bad profile fails cleanly.
+      let profileEnv: Record<string, string> = {};
+      if (options.envProfile) {
+        const profile = await loadEnvProfile(options.envProfile);
+        if (profile.type === 'error') {
+          logger.debug(`[RUNNER RUN] Env profile rejected: ${profile.errorMessage}`);
+          return {
+            type: 'error',
+            errorMessage: profile.errorMessage,
+            childStarted: false,
+          };
+        }
+        if (profile.ignoredKeys.length > 0) {
+          logger.warn(`[RUNNER RUN] Env profile '${options.envProfile}' ignores reserved keys: ${profile.ignoredKeys.join(', ')}`);
+        }
+        if (profile.worldReadable) {
+          logger.warn(`[RUNNER RUN] Env profile '${options.envProfile}' is readable by other users; chmod 600 it`);
+        }
+        profileEnv = profile.env;
+      }
       const yolo = options.yolo === true;
       const sessionType = options.sessionType ?? 'simple';
       const worktreeName = options.worktreeName;
@@ -848,10 +869,7 @@ export async function startRunner(options: { workspaceRoots?: string[] } = {}): 
           cwd: spawnDirectory,
           detached: true,  // Sessions stay alive when runner stops
           stdio: ['ignore', 'pipe', 'pipe'],  // Capture stdout/stderr for debugging
-          env: {
-            ...process.env,
-            ...extraEnv
-          }
+          env: buildSpawnChildEnv(process.env, profileEnv, extraEnv, options.envProfile)
         });
         happyProcess.once('exit', () => {
           void cleanupCopiedCodexConfig('child-exit');

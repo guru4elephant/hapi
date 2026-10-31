@@ -45,6 +45,15 @@ Work **locally** in the terminal or **remotely** from web/phone, keeping the sam
 
 See [Seamless Handoff](./how-it-works.md#seamless-handoff) for details.
 
+### Third-party API endpoints
+
+To run Claude Code or Codex against a third-party API from the web app, put the
+endpoint and key in a runner [env profile](./installation.md#env-profiles) and
+pick it in the **New Session** form. For terminal sessions, set the same
+variables in your shell (or in `~/.claude/settings.json` `env` for Claude Code,
+and `model_providers` with `env_key` in Codex's `config.toml`) before running
+`hapi claude` / `hapi codex`.
+
 ### Resuming sessions
 
 ```bash

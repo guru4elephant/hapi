@@ -747,6 +747,41 @@ describe('ApiMachineClient SpawnHappySession handler', () => {
         }
     })
 
+    it('forwards envProfile and keeps childStarted:false from a pre-exec runner rejection', async () => {
+        const machine = makeMachine('machine-spawn-profile')
+        const client = new ApiMachineClient('cli-token', machine, [workspaceRoot])
+        const spawnSession = vi.fn(async () => ({
+            type: 'error' as const,
+            errorMessage: "Env profile 'gone' not found on this machine",
+            childStarted: false as const,
+        }))
+
+        client.setRPCHandlers({
+            spawnSession,
+            stopSession: vi.fn(async () => 'stopped' as const),
+            requestShutdown: vi.fn()
+        })
+
+        try {
+            const result = await callSpawnHappySession(client, machine.id, {
+                directory: workspaceRoot,
+                agent: 'claude',
+                envProfile: 'gone'
+            })
+
+            expect(spawnSession).toHaveBeenCalledWith(expect.objectContaining({ envProfile: 'gone' }))
+            expect(result).toEqual({
+                type: 'error',
+                errorMessage: "Env profile 'gone' not found on this machine",
+                code: undefined,
+                agent: undefined,
+                childStarted: false,
+            })
+        } finally {
+            client.shutdown()
+        }
+    })
+
     it('returns childStarted:false on outside_workspace_roots so hub deletes the stub', async () => {
         const machine = makeMachine('machine-spawn-outside')
         const client = new ApiMachineClient('cli-token', machine, [workspaceRoot])

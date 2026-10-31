@@ -96,6 +96,14 @@ export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Ho
         ) {
             return c.json({ error: `${parsed.data.agent.toUpperCase()} only supports remote mode` }, 400)
         }
+        // Older runners ignore envProfile and would silently use their own env.
+        if (parsed.data.envProfile && !machine.metadata?.capabilities?.includes(MACHINE_CAPABILITIES.EnvProfiles)) {
+            return c.json({
+                type: 'error' as const,
+                message: 'This runner must be upgraded to use env profiles',
+                code: 'runner_upgrade_required' as const,
+            })
+        }
         const startingMode = parsed.data.startingMode
         const namespace = c.get('namespace')
 
@@ -116,7 +124,8 @@ export function createMachinesRoutes(getSyncEngine: () => SyncEngine | null): Ho
             parsed.data.collaborationMode,
             parsed.data.copilotAgentMode,
             startingMode,
-            namespace
+            namespace,
+            parsed.data.envProfile
         )
         return c.json(result)
     })

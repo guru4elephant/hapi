@@ -421,6 +421,54 @@ describe('machines routes', () => {
         expect(captured![12]).toBeUndefined()
     })
 
+    it('forwards envProfile only to runners that advertise env-profiles', async () => {
+        let captured: unknown[] | null = null
+        let machine = createMachine({
+            metadata: {
+                host: 'localhost',
+                platform: 'darwin',
+                happyCliVersion: '1.0.0',
+                capabilities: [MACHINE_CAPABILITIES.AgentAvailability, MACHINE_CAPABILITIES.EnvProfiles],
+                envProfiles: ['proxy']
+            }
+        })
+        const engine = {
+            getMachine: () => machine,
+            getMachineByNamespace: () => machine,
+            spawnSession: async (...args: unknown[]) => {
+                captured = args
+                return { type: 'success', sessionId: 's-1' }
+            }
+        } as unknown as Partial<SyncEngine>
+        const app = new Hono<WebAppEnv>()
+        app.use('*', async (c, next) => { c.set('namespace', 'default'); await next() })
+        app.route('/api', createMachinesRoutes(() => engine as SyncEngine))
+        const spawn = (envProfile: string) => app.request('/api/machines/machine-1/spawn', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ directory: '/tmp/x', envProfile })
+        })
+
+        const ok = await spawn('proxy')
+        expect(ok.status).toBe(200)
+        // envProfile follows namespace at the end of the positional list.
+        expect(captured![16]).toBe('default')
+        expect(captured![17]).toBe('proxy')
+
+        captured = null
+        expect((await spawn('../secret')).status).toBe(400)
+        expect(captured).toBeNull()
+
+        machine = createMachine()
+        const old = await spawn('proxy')
+        expect(await old.json()).toEqual({
+            type: 'error',
+            message: 'This runner must be upgraded to use env profiles',
+            code: 'runner_upgrade_required'
+        })
+        expect(captured).toBeNull()
+    })
+
     it('forwards AGY spawns without forcing a starting mode', async () => {
         const machine = createMachine()
         let captured: unknown[] | null = null

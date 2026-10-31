@@ -88,6 +88,52 @@ describe('SyncEngine.spawnSession preallocates HAPI id for fresh machine spawns'
         }
     })
 
+    it('forwards envProfile and records it on the prealloc stub for resume', async () => {
+        const store = new Store(':memory:')
+        const engine = new SyncEngine(
+            store,
+            {} as never,
+            new RpcRegistry(),
+            { broadcast() {} } as never
+        )
+
+        try {
+            engine.getOrCreateMachine(
+                'machine-env',
+                { host: 'localhost', platform: 'linux', happyCliVersion: '0.1.0' },
+                null,
+                'default'
+            )
+            engine.handleMachineAlive({ machineId: 'machine-env', time: Date.now() })
+
+            let forwardedProfile: string | undefined
+            ;(engine as unknown as { rpcGateway: { spawnSession: unknown } }).rpcGateway.spawnSession =
+                async (
+                    _m: string, _d: string, _a?: string, _mo?: string, _mr?: string, _y?: boolean,
+                    _st?: string, _wn?: string, _rs?: string, _e?: string, _pm?: string, _svc?: string,
+                    _existing?: string, _cm?: string, _ca?: string, _sm?: string, _fs?: boolean,
+                    reservedSessionId?: string, envProfile?: string
+                ) => {
+                    forwardedProfile = envProfile
+                    return { type: 'success' as const, sessionId: reservedSessionId! }
+                }
+
+            const result = await engine.spawnSession(
+                'machine-env', '/tmp/project', 'claude',
+                undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+                undefined, undefined, undefined, undefined, undefined, undefined,
+                'default', 'proxy'
+            )
+
+            expect(result.type).toBe('success')
+            expect(forwardedProfile).toBe('proxy')
+            const row = result.type === 'success' ? store.sessions.getSession(result.sessionId) : null
+            expect((row?.metadata as { envProfile?: string } | null)?.envProfile).toBe('proxy')
+        } finally {
+            engine.stop()
+        }
+    })
+
     it('rejects success when runner reports a different id than the prealloc stub', async () => {
         const store = new Store(':memory:')
         const engine = new SyncEngine(
@@ -738,6 +784,57 @@ describe('SyncEngine.spawnSession preallocates HAPI id for fresh machine spawns'
 
             expect(result.type).toBe('error')
             expect(store.sessions.getSession(allocatedId!)?.id).toBe(allocatedId)
+        } finally {
+            engine.stop()
+        }
+    })
+})
+
+describe('SyncEngine.resumeSession env profile', () => {
+    it('respawns with the env profile recorded on the session', async () => {
+        const store = new Store(':memory:')
+        const engine = new SyncEngine(
+            store,
+            {} as never,
+            new RpcRegistry(),
+            { broadcast() {} } as never
+        )
+
+        try {
+            const machine = engine.getOrCreateMachine(
+                'machine-env-resume',
+                { host: 'localhost', platform: 'linux', happyCliVersion: '0.1.0' },
+                null,
+                'default'
+            )
+            engine.handleMachineAlive({ machineId: machine.id, time: Date.now() })
+            const session = engine.getOrCreateSession(
+                'resume-env-profile',
+                {
+                    path: '/tmp/project',
+                    host: 'localhost',
+                    machineId: machine.id,
+                    flavor: 'codex',
+                    codexSessionId: 'resume-token',
+                    envProfile: 'proxy'
+                },
+                { requests: {}, completedRequests: {} },
+                'default'
+            )
+            engine.handleSessionEnd({ sid: session.id, time: Date.now() })
+
+            let forwardedProfile: string | undefined
+            ;(engine as any).rpcGateway.spawnSession = async (...args: unknown[]) => {
+                forwardedProfile = args[18] as string | undefined
+                engine.handleSessionAlive({ sid: session.id, time: Date.now() })
+                return { type: 'success', sessionId: session.id }
+            }
+            ;(engine as any).waitForSessionActive = async () => true
+
+            const result = await engine.resumeSession(session.id, 'default')
+
+            expect(result).toEqual({ type: 'success', sessionId: session.id })
+            expect(forwardedProfile).toBe('proxy')
         } finally {
             engine.stop()
         }

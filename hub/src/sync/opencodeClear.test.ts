@@ -644,6 +644,8 @@ describe('SyncEngine.clearOpenCodeSession', () => {
                 undefined,
                 // forkSession / reservedSessionId — clear uses reopen existingSessionId
                 undefined,
+                undefined,
+                // envProfile — the source session has none
                 undefined
             )
             expect(engine.getSessionByNamespace(replacementSessionId, 'default')?.metadata).toMatchObject({

@@ -25,6 +25,8 @@ export interface SpawnSessionOptions {
     sessionType?: 'simple' | 'worktree'
     worktreeName?: string
     startingMode?: 'remote' | 'pty'
+    /** Name of $HAPI_HOME/env-profiles/<name>.env to apply to the child env. */
+    envProfile?: string
     /** Claude: spawn with --fork-session after --resume. */
     forkSession?: boolean
     /** Runner-internal post-create containment revalidation. Never serialized. */

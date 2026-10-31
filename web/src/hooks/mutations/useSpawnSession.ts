@@ -19,6 +19,8 @@ type SpawnInput = {
     collaborationMode?: CodexCollaborationMode
     copilotAgentMode?: CopilotAgentMode
     startingMode?: 'remote' | 'pty'
+    /** Runner env profile name; the runner resolves the values locally. */
+    envProfile?: string
 }
 
 export function useSpawnSession(api: ApiClient | null): {
@@ -47,7 +49,8 @@ export function useSpawnSession(api: ApiClient | null): {
                 input.serviceTier,
                 input.collaborationMode,
                 input.copilotAgentMode,
-                input.startingMode
+                input.startingMode,
+                input.envProfile
             )
         },
         onSuccess: () => {

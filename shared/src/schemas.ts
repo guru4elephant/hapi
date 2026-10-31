@@ -52,6 +52,13 @@ export const WorktreeMetadataSchema = z.object({
 
 export type WorktreeMetadata = z.infer<typeof WorktreeMetadataSchema>
 
+// Name of a runner-side env profile ($HAPI_HOME/env-profiles/<name>.env).
+// Clients only ever see and send names; values stay on the runner machine.
+export const ENV_PROFILE_NAME_PATTERN = /^[A-Za-z0-9._-]{1,64}$/
+export const EnvProfileNameSchema = z.string()
+    .regex(ENV_PROFILE_NAME_PATTERN)
+    .refine((name) => name !== '.' && name !== '..', 'Invalid env profile name')
+
 export const MetadataSchema = z.object({
     path: z.string(),
     host: z.string(),
@@ -123,6 +130,8 @@ export const MetadataSchema = z.object({
     happyLibDir: z.string().optional(),
     happyToolsDir: z.string().optional(),
     startedFromRunner: z.boolean().optional(),
+    // Runner env profile the session was spawned with; resume/fork reuse it.
+    envProfile: z.string().optional(),
     hostPid: z.number().optional(),
     // Start marker of the reporting CLI process (cli getProcessStartMarker):
     // lets the runner refuse to adopt a late webhook whose PID has since been
@@ -496,6 +505,8 @@ export const MachineMetadataSchema = z.object({
     happyHomeDir: z.string().optional(),
     happyLibDir: z.string().optional(),
     workspaceRoots: z.array(z.string()).optional(),
+    /** Env profile names found in $HAPI_HOME/env-profiles when the runner started. */
+    envProfiles: z.array(z.string()).optional(),
     /** Machine-scoped RPC capability ids this runner registers (see runnerCapabilities). */
     capabilities: z.array(z.string()).optional(),
     /** CLI binary/package mtime when this runner process started. */

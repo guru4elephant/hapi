@@ -58,6 +58,17 @@ describe('RpcGateway RPC timeouts', () => {
         await gateway.spawnSession('machine-1', 'C:\\workspace', 'claude')
         expect(timeouts).toEqual([60_000, 30_000])
     })
+
+    it('sends only the env profile name in the spawn payload', async () => {
+        const { gateway, calls } = createGateway()
+        await gateway.spawnSession(
+            'machine-1', '/tmp/x', 'claude',
+            undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+            undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+            'proxy'
+        )
+        expect(JSON.parse(calls[0]!.params)).toMatchObject({ type: 'spawn-in-directory', envProfile: 'proxy' })
+    })
     it('uses the default RPC timeout for regular machine RPCs', async () => {
         const { gateway, timeouts } = createGateway()
 

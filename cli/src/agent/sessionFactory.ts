@@ -7,6 +7,7 @@ import { ApiClient } from '@/api/api'
 import type { ApiSessionClient } from '@/api/apiSession'
 import type { AgentState, MachineMetadata, Metadata, Session } from '@/api/types'
 import { getInstalledCliMtimeMs, notifyRunnerSessionStarted } from '@/runner/controlClient'
+import { listEnvProfiles } from '@/runner/envProfiles'
 import { readSettings } from '@/persistence'
 import { configuration } from '@/configuration'
 import { logger } from '@/ui/logger'
@@ -101,6 +102,7 @@ export function buildMachineMetadata(options?: {
     return {
         ...base,
         capabilities: [...CURRENT_MACHINE_CAPABILITIES],
+        envProfiles: listEnvProfiles(),
         ...(typeof startedCliMtimeMs === 'number' ? { startedCliMtimeMs } : {}),
         ...(typeof installedCliMtimeMs === 'number' ? { installedCliMtimeMs } : {}),
         // Always boolean so hub merge can clear a prior true on unsupervised restart.
@@ -131,6 +133,9 @@ export function buildSessionMetadata(options: {
         happyLibDir,
         happyToolsDir: resolve(happyLibDir, 'tools', 'unpacked'),
         startedFromRunner: options.startedBy === 'runner',
+        // Set by the runner for every spawn ('' = no profile) so a value
+        // inherited by the runner itself cannot leak into unrelated sessions.
+        envProfile: process.env.HAPI_ENV_PROFILE?.trim() || undefined,
         hostPid: process.pid,
         // Proves which process generation owns hostPid: the runner adopts an
         // untracked runner-started webhook only when this matches the live

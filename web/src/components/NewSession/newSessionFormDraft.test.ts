@@ -54,6 +54,13 @@ describe('newSessionFormDraft', () => {
         })
     })
 
+    it('keeps the env profile across a browse round-trip', () => {
+        sessionStorage.setItem('hapi:new-session-form-draft', JSON.stringify({
+            agent: 'claude', model: 'auto', envProfile: 'proxy'
+        }))
+        expect(loadNewSessionFormDraft()?.envProfile).toBe('proxy')
+    })
+
     it('restores only when returning from browse with a directory in search', () => {
         expect(shouldRestoreNewSessionFormDraft({})).toBe(false)
         expect(shouldRestoreNewSessionFormDraft({ initialDirectory: '/tmp/proj' })).toBe(true)

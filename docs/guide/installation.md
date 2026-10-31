@@ -377,6 +377,45 @@ anywhere the runner's OS account can access. The iOS directory picker starts
 at the home directory and can navigate above it. Configuring roots restricts
 both browsing and spawning to those roots, including symlink targets.
 
+#### Env profiles
+
+An env profile is a named set of environment variables that the runner applies
+to a session it spawns, for example to point Claude Code or Codex at a
+third-party API. Profiles live on the runner machine at
+`$HAPI_HOME/env-profiles/<name>.env` (default `~/.hapi/env-profiles/`). The
+web app's **New Session** form shows an **Env profile** selector when the
+selected machine has at least one profile; only the names leave the machine.
+
+```bash
+mkdir -p ~/.hapi/env-profiles
+cat > ~/.hapi/env-profiles/claude-proxy.env <<'EOF'
+# Claude Code via an Anthropic-compatible endpoint
+ANTHROPIC_BASE_URL=https://your-proxy.example.com
+ANTHROPIC_AUTH_TOKEN=sk-xxx
+ANTHROPIC_MODEL=your-model
+EOF
+cat > ~/.hapi/env-profiles/codex-proxy.env <<'EOF'
+# Codex: a separate CODEX_HOME whose config.toml defines the provider
+# (model_provider + [model_providers.x] with env_key = "MYPROXY_API_KEY")
+CODEX_HOME=/home/you/.codex-myproxy
+MYPROXY_API_KEY=sk-xxx
+EOF
+chmod 600 ~/.hapi/env-profiles/*.env
+hapi runner stop && hapi runner start   # new profile names are listed at runner start
+```
+
+File format and behavior:
+
+- One `KEY=VALUE` per line. Blank lines, `#` comments, and an `export ` prefix are allowed.
+- `"double quotes"` accept `\n`, `\t`, `\"`, and `\\`; `'single quotes'` are literal. Unquoted values end at ` #`.
+- Values are not expanded: `$HOME` and `~` stay as written, so use absolute paths.
+- The runner reads the file on every spawn, so edits to an existing profile apply to the next session without a restart. Adding or removing a profile needs a runner restart before the web list changes.
+- Precedence: runner environment < profile < variables the runner sets itself (worktree variables, per-spawn auth tokens).
+- `HAPI_*` keys and `CLI_API_TOKEN` are ignored, so a profile cannot redirect the session to another hub.
+- Resuming or forking a session reuses the profile it started with. If that profile has since been deleted, the resume fails with a "not found" error.
+- A missing or malformed profile fails the spawn with the file name and line number; values never appear in errors or logs. The runner warns if the file is readable by other users.
+- Selecting a profile requires a runner from this release or newer; older runners do not show the selector and the hub rejects the request.
+
 For running the hub and runner as persistent background services (pm2, launchd, systemd), see [Deployment](./deployment.md). Supervised installs should set `HAPI_RUNNER_SUPERVISED=1` on the runner process (systemd `Environment=` / pm2 `--env`) so the web **Restart** control can safely stop-runner knowing the supervisor will cold-start it.
 
 ### Multi-machine hubs

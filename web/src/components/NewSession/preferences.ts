@@ -24,6 +24,8 @@ export type PreferredLaunchSettings = {
     effort: LaunchEffort
     modelReasoningEffort: CodexReasoningEffort
     permissionMode?: PermissionMode
+    /** Runner env profile name; validated against the machine's list at render. */
+    envProfile?: string
 }
 
 // Only launchable flavors are valid defaults; a stale 'gemini' preference
@@ -97,7 +99,8 @@ export function loadPreferredLaunchSettings(
             modelReasoningEffort: typeof parsed.modelReasoningEffort === 'string'
                 ? parsed.modelReasoningEffort
                 : 'default',
-            ...(permissionMode ? { permissionMode } : {})
+            ...(permissionMode ? { permissionMode } : {}),
+            ...(typeof parsed.envProfile === 'string' && parsed.envProfile ? { envProfile: parsed.envProfile } : {})
         }
     } catch {
         return null
@@ -179,6 +182,7 @@ export function resolvePreferredLaunchSettings(
         cursorSelectedBase: preferred?.cursorSelectedBase ?? 'auto',
         effort,
         modelReasoningEffort,
-        ...(permissionMode ? { permissionMode } : {})
+        ...(permissionMode ? { permissionMode } : {}),
+        ...(preferred?.envProfile ? { envProfile: preferred.envProfile } : {})
     }
 }

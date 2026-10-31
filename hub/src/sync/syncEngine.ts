@@ -1622,6 +1622,7 @@ export class SyncEngine {
             ...(forkSummary ? { summary: forkSummary } : {}),
             forkedFrom: sessionId,
             startedBy: 'runner',
+            ...(source.metadata?.envProfile ? { envProfile: source.metadata.envProfile } : {}),
             capabilities: source.metadata?.capabilities,
             conversationHistoryPoints: Object.fromEntries(
                 Object.entries(source.metadata?.conversationHistoryPoints ?? {})
@@ -1705,7 +1706,9 @@ export class SyncEngine {
                 source.collaborationMode,
                 undefined,
                 undefined,
-                rpcResult.forkSession === true
+                rpcResult.forkSession === true,
+                undefined,
+                source.metadata?.envProfile
             )
             if (spawn.type !== 'success') {
                 throw new Error(spawn.message)
@@ -2322,7 +2325,8 @@ export class SyncEngine {
         startingMode?: 'remote' | 'pty',
         // Required for fresh machine spawns so the runner stamps the HAPI id on
         // argv before the first webhook (#1911 Major: unreapable window).
-        namespace?: string
+        namespace?: string,
+        envProfile?: string
     ): ReturnType<RpcGateway['spawnSession']> {
         // Fresh machine spawns historically omitted existingSessionId, so
         // buildCliArgs could not stamp --hapi-session-id / --existing-session-id.
@@ -2344,6 +2348,7 @@ export class SyncEngine {
                     machineId,
                     startedBy: 'runner',
                     startedFromRunner: true,
+                    ...(envProfile ? { envProfile } : {}),
                 },
                 null,
                 namespace,
@@ -2377,7 +2382,8 @@ export class SyncEngine {
                 copilotAgentMode,
                 startingMode,
                 undefined,
-                preallocated ? allocatedSessionId : undefined
+                preallocated ? allocatedSessionId : undefined,
+                envProfile
             )
         } catch (error) {
             // Ambiguous post-dispatch failure — keep the stub (child may exist).
@@ -2692,7 +2698,11 @@ export class SyncEngine {
             source.permissionMode ?? metadata.preferredPermissionMode,
             source.serviceTier ?? undefined,
             operation.replacementSessionId,
-            source.collaborationMode
+            source.collaborationMode,
+            undefined,
+            undefined,
+            undefined,
+            metadata.envProfile
         )
         if (spawned.type === 'error') {
             this.persistClearOperationState(sessionId, namespace, operation, spawned.message)
@@ -3481,7 +3491,10 @@ export class SyncEngine {
                 access.sessionId,
                 session.collaborationMode ?? undefined,
                 session.copilotAgentMode ?? undefined,
-                resumedStartingMode
+                resumedStartingMode,
+                undefined,
+                undefined,
+                metadata.envProfile
             )
 
             if (spawnResult.type !== 'success') {

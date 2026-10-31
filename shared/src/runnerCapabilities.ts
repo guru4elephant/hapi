@@ -34,6 +34,8 @@ export const MACHINE_CAPABILITIES = {
     StopRunner: RPC_METHODS.StopRunner,
     /** Read-only file/Git/search RPCs available on the long-lived runner. */
     WorkspaceFileAccess: 'workspace-file-access',
+    /** Spawn accepts `envProfile` and applies $HAPI_HOME/env-profiles/<name>.env. */
+    EnvProfiles: 'env-profiles',
 } as const
 
 export type MachineCapability =
@@ -45,6 +47,7 @@ export const CURRENT_MACHINE_CAPABILITIES: readonly MachineCapability[] = [
     MACHINE_CAPABILITIES.CursorChatStoreStatus,
     MACHINE_CAPABILITIES.StopRunner,
     MACHINE_CAPABILITIES.WorkspaceFileAccess,
+    MACHINE_CAPABILITIES.EnvProfiles,
 ]
 
 /**

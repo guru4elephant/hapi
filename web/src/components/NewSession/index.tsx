@@ -2,7 +2,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ty
 import type { ApiClient } from '@/api/client'
 import type { CodexDuplicateSessionGroup, CodexLocalSessionSummary, Machine, OpencodeLocalSessionSummary, PiLocalSessionSummary } from '@/types/api'
 import type { CodexCollaborationMode, GrokPermissionMode, PermissionMode, CopilotAgentMode } from '@hapi/protocol'
-import { getAgyModelChoices, splitAgyModelSelection, getClaudeEffortLevelsForModel, resolveClaudeEffortForModel } from '@hapi/protocol'
+import { MACHINE_CAPABILITIES, getAgyModelChoices, splitAgyModelSelection, getClaudeEffortLevelsForModel, resolveClaudeEffortForModel } from '@hapi/protocol'
 import { codexModelAdvertisesFastTier } from '@/components/AssistantChat/codexFastMode'
 import { usePlatform } from '@/hooks/usePlatform'
 import { useMachinePathsExists } from '@/hooks/useMachinePathsExists'
@@ -77,6 +77,7 @@ import {
     savePreferredYoloMode,
 } from './preferences'
 import { SessionTypeSelector } from './SessionTypeSelector'
+import { EnvProfileSelector } from './EnvProfileSelector'
 import { PermissionField } from './PermissionField'
 import { usesNativePermissionSelect, usesSharedPermissionModeState } from '@/lib/codexFamilyPermissionAgents'
 import { CodexSessionSyncDialog } from '@/components/CodexSessionSyncDialog'
@@ -134,6 +135,8 @@ export function NewSession(props: {
     const [grokPermissionMode, setGrokPermissionMode] = useState<GrokPermissionMode>('default')
     const [sessionType, setSessionType] = useState<SessionType>('simple')
     const [worktreeName, setWorktreeName] = useState('')
+    // '' = no profile. Kept as chosen; spawns use effectiveEnvProfile below.
+    const [envProfile, setEnvProfile] = useState('')
     const [directoryCreationConfirmed, setDirectoryCreationConfirmed] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [codexImportSessions, setCodexImportSessions] = useState<CodexLocalSessionSummary[]>([])
@@ -281,6 +284,7 @@ export function NewSession(props: {
         setGrokPermissionMode(draft.grokPermissionMode)
         setSessionType(draft.sessionType)
         setWorktreeName(draft.worktreeName)
+        setEnvProfile(draft.envProfile ?? '')
         clearNewSessionFormDraft()
     }, [
         props.initialDirectory,
@@ -310,6 +314,14 @@ export function NewSession(props: {
         () => (machineId ? props.machines.find((machine) => machine.id === machineId) ?? null : null),
         [machineId, props.machines]
     )
+    // Older runners ignore envProfile, so only offer it when advertised.
+    const envProfileOptions = useMemo(
+        () => selectedMachine?.metadata?.capabilities?.includes(MACHINE_CAPABILITIES.EnvProfiles)
+            ? selectedMachine.metadata.envProfiles ?? []
+            : [],
+        [selectedMachine]
+    )
+    const effectiveEnvProfile = envProfileOptions.includes(envProfile) ? envProfile : ''
     const agentAvailability = useAgentAvailability({
         api: props.api,
         machineId,
@@ -992,6 +1004,7 @@ export function NewSession(props: {
         setDshSelectedModel(
             agent === 'dsh' && preferred.model !== 'auto' ? preferred.model : null
         )
+        setEnvProfile(preferred.envProfile ?? '')
     }, [agent, legacyYoloAgent, machineId, usesSharedPermissionMode])
 
     useEffect(() => {
@@ -1640,7 +1653,8 @@ export function NewSession(props: {
             nativePermissionMode,
             grokPermissionMode,
             sessionType,
-            worktreeName
+            worktreeName,
+            envProfile
         })
         props.onChooseFolder({ machineId, directory: trimmedDirectory })
     }, [
@@ -1662,6 +1676,7 @@ export function NewSession(props: {
         grokPermissionMode,
         sessionType,
         worktreeName,
+        envProfile,
         trimmedDirectory
     ])
 
@@ -1805,7 +1820,8 @@ export function NewSession(props: {
                 cursorSelectedBase,
                 effort,
                 modelReasoningEffort,
-                ...(usesSharedPermissionMode ? { permissionMode: nativePermissionMode } : {})
+                ...(usesSharedPermissionMode ? { permissionMode: nativePermissionMode } : {}),
+                ...(effectiveEnvProfile ? { envProfile: effectiveEnvProfile } : {})
             }
             const resolvedServiceTier = agent === 'codex' && showCodexFastMode
                 ? serviceTier
@@ -1925,6 +1941,7 @@ export function NewSession(props: {
                 serviceTier: resolvedServiceTier,
                 collaborationMode: resolvedCollaborationMode,
                 copilotAgentMode: agent === 'copilot' ? copilotAgentMode : undefined,
+                envProfile: effectiveEnvProfile || undefined,
             })
 
 
@@ -2050,6 +2067,14 @@ export function NewSession(props: {
                 onSessionTypeChange={setSessionType}
                 onWorktreeNameChange={setWorktreeName}
             />
+            {envProfileOptions.length > 0 ? (
+                <EnvProfileSelector
+                    profiles={envProfileOptions}
+                    value={effectiveEnvProfile}
+                    isDisabled={isFormDisabled}
+                    onChange={setEnvProfile}
+                />
+            ) : null}
             <AgentSelector
                 agent={agent}
                 agents={availableAgents}

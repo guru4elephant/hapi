@@ -441,6 +441,69 @@ describe('NewSession launch preferences', () => {
         expect(mocks.spawnSession).not.toHaveBeenCalled()
     })
 
+    it('spawns with a chosen env profile and remembers it for the machine and agent', async () => {
+        const profileMachine = {
+            id: 'machine-1',
+            metadata: { capabilities: ['env-profiles'], envProfiles: ['proxy', 'work'] }
+        } as unknown as Machine
+        mocks.spawnSession.mockResolvedValue({ type: 'success', sessionId: 'session-1' })
+
+        render(
+            <NewSession
+                api={api}
+                machines={[profileMachine]}
+                initialMachineId="machine-1"
+                initialDirectory="C:\\repo"
+                onSuccess={mocks.onSuccess}
+                onCancel={() => {}}
+            />
+        )
+
+        const select = screen.getByLabelText('newSession.envProfile')
+        expect(select).toHaveValue('')
+        fireEvent.change(select, { target: { value: 'proxy' } })
+        await waitFor(() => expect(screen.getByTestId('create')).toBeEnabled())
+        fireEvent.click(screen.getByTestId('create'))
+
+        await waitFor(() => expect(mocks.spawnSession).toHaveBeenCalledWith(
+            expect.objectContaining({ machineId: 'machine-1', envProfile: 'proxy' })
+        ))
+        expect(loadPreferredLaunchSettings('machine-1', 'codex')?.envProfile).toBe('proxy')
+    })
+
+    it('hides env profiles on runners without the capability and drops a stale remembered one', async () => {
+        savePreferredLaunchSettings('machine-1', 'codex', {
+            model: 'auto',
+            cursorSelectedBase: 'auto',
+            effort: 'auto',
+            modelReasoningEffort: 'default',
+            envProfile: 'proxy'
+        })
+        const oldRunner = {
+            id: 'machine-1',
+            metadata: { capabilities: [], envProfiles: ['proxy'] }
+        } as unknown as Machine
+        mocks.spawnSession.mockResolvedValue({ type: 'success', sessionId: 'session-1' })
+
+        render(
+            <NewSession
+                api={api}
+                machines={[oldRunner]}
+                initialMachineId="machine-1"
+                initialDirectory="C:\\repo"
+                onSuccess={mocks.onSuccess}
+                onCancel={() => {}}
+            />
+        )
+
+        expect(screen.queryByLabelText('newSession.envProfile')).not.toBeInTheDocument()
+        await waitFor(() => expect(screen.getByTestId('create')).toBeEnabled())
+        fireEvent.click(screen.getByTestId('create'))
+
+        await waitFor(() => expect(mocks.spawnSession).toHaveBeenCalled())
+        expect(mocks.spawnSession.mock.calls[0]![0].envProfile).toBeUndefined()
+    })
+
     it('restores the last successful model and reasoning effort for the machine and agent', async () => {
         savePreferredLaunchSettings('machine-1', 'codex', {
             model: 'gpt-5.6-sol',
