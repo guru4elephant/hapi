@@ -69,6 +69,7 @@ import { groupModelsByProvider } from './piModelGroups'
 import type { ApiClient } from '@/api/client'
 import { useVoiceInputPreferences } from '@/hooks/useVoiceInputPreferences'
 import { useDictation } from '@/hooks/useDictation'
+import { TypelessVoiceButton } from '@/components/AssistantChat/TypelessVoiceButton'
 import { resolveMessageDeliveryMode, type ComposerSendIntent } from '@/lib/messageDelivery'
 import type { MessageDeliveryMode } from '@hapi/protocol'
 import { moveAttachmentId, orderItemsById, reconcileAttachmentOrder, type AttachmentDropPosition } from '@/lib/attachmentOrder'
@@ -2551,6 +2552,14 @@ export function HappyComposer(props: {
                                 scratchlistCount={props.scratchlistCount}
                                 onScratchlistToggle={props.onScratchlistToggle}
                                 omitPrimaryButton
+                            />
+                        </div>
+                        {/* Typeless voice input — compact mic always visible before the primary button */}
+                        <div className="flex shrink-0 items-end self-stretch py-3 pr-1">
+                            <TypelessVoiceButton
+                                getCurrentText={getCurrentComposerText}
+                                onTextChange={setComposerText}
+                                disabled={controlsDisabled}
                             />
                         </div>
                         {/* Collapsed card: fill-height primary (empty → voice; draft → Send). Expanded: compact. */}
