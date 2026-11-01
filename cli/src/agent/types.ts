@@ -56,6 +56,7 @@ export type AgentMessage =
     }
     | { type: 'plan'; items: PlanItem[] }
     | { type: 'generated_image'; imageId: string; fileName: string; mimeType: string; source?: InlineMediaSource }
+    | { type: 'generated_page'; url: string; title?: string; source?: InlineMediaSource }
     | { type: 'turn_complete'; stopReason: string }
     | { type: 'error'; message: string };
 

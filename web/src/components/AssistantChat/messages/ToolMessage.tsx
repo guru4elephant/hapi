@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import type { ChatBlock } from '@/chat/types'
-import type { GeneratedImageBlock, ToolCallBlock } from '@/chat/types'
+import type { GeneratedImageBlock, GeneratedPageBlock, ToolCallBlock } from '@/chat/types'
 import type { ToolGroupBlock } from '@/chat/toolGroups'
 import { isObject, safeStringify } from '@hapi/protocol'
 import { isSubagentToolName } from '@/chat/subagentTool'
@@ -18,6 +18,7 @@ import { ImagePreview } from '@/components/ImagePreview'
 import { FileIcon } from '@/components/FileIcon'
 import { useTranslation } from '@/lib/use-translation'
 import { inlineMediaLabelKey, isInlineAudioMimeType, isInlineImageMimeType, isInlineVideoMimeType } from '@/lib/generatedInlineMedia'
+import { PagePreviewCard } from '@/components/AssistantChat/messages/PagePreviewCard'
 
 function isToolCallBlock(value: unknown): value is ToolCallBlock {
     if (!isObject(value)) return false
@@ -49,6 +50,14 @@ function isGeneratedImageBlock(value: unknown): value is GeneratedImageBlock {
     if (typeof value.imageId !== 'string') return false
     if (typeof value.fileName !== 'string') return false
     if (value.mimeType !== null && typeof value.mimeType !== 'string') return false
+    return true
+}
+
+function isGeneratedPageBlock(value: unknown): value is GeneratedPageBlock {
+    if (!isObject(value)) return false
+    if (value.kind !== 'generated-page') return false
+    if (typeof value.id !== 'string') return false
+    if (typeof value.url !== 'string') return false
     return true
 }
 
@@ -284,6 +293,14 @@ function HappyNestedBlockList(props: {
                     )
                 }
 
+                if (block.kind === 'generated-page') {
+                    return (
+                        <div key={`generated-page:${block.id}`} className="px-1">
+                            <PagePreviewCard block={block} />
+                        </div>
+                    )
+                }
+
                 if (block.kind === 'agent-event') {
                     const presentation = getEventPresentation(block.event)
                     return (
@@ -368,6 +385,14 @@ export function HappyToolMessage(props: ToolCallMessagePartProps) {
         return (
             <div className="py-1 min-w-0 max-w-full overflow-x-hidden">
                 <GeneratedImageCard block={artifact} />
+            </div>
+        )
+    }
+
+    if (isGeneratedPageBlock(artifact)) {
+        return (
+            <div className="py-1 min-w-0 max-w-full overflow-x-hidden">
+                <PagePreviewCard block={artifact} />
             </div>
         )
     }

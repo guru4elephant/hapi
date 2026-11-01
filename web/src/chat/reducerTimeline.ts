@@ -927,6 +927,21 @@ export function reduceTimeline(
                     continue
                 }
 
+                if (c.type === 'generated-page') {
+                    blocks.push({
+                        kind: 'generated-page',
+                        id: `${msg.id}:${idx}`,
+                        localId: msg.localId,
+                        createdAt: msg.createdAt,
+                        invokedAt: msg.invokedAt,
+                        url: c.url,
+                        title: c.title,
+                        source: c.source,
+                        meta: msg.meta
+                    })
+                    continue
+                }
+
                 if (c.type === 'reasoning') {
                     const streamId = nonBlank(c.streamId)
                     if (streamId) {

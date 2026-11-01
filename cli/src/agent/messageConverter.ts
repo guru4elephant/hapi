@@ -49,6 +49,13 @@ export type CodexMessage =
         mimeType: string;
         id: string;
         source?: InlineMediaSource;
+    }
+    | {
+        type: 'generated-page';
+        url: string;
+        title?: string;
+        id: string;
+        source?: InlineMediaSource;
     };
 
 export function convertAgentMessage(message: AgentMessage, model?: string | null): CodexMessage | null {
@@ -126,6 +133,14 @@ export function convertAgentMessage(message: AgentMessage, model?: string | null
                 imageId: message.imageId,
                 fileName: message.fileName,
                 mimeType: message.mimeType,
+                id: randomUUID(),
+                source: message.source,
+            };
+        case 'generated_page':
+            return {
+                type: 'generated-page',
+                url: message.url,
+                title: message.title,
                 id: randomUUID(),
                 source: message.source,
             };

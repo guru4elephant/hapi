@@ -291,6 +291,10 @@ function reconcileBlock(block: ChatBlock, prevById: ChatBlocksById): ChatBlock {
         return areCodexReviewBlocksEqual(prevBlock, block) ? prevBlock : block
     }
 
+    if (block.kind === 'generated-page') {
+        return prev ?? block
+    }
+
     const prevBlock = prev as AgentEventBlock
     return areAgentEventBlocksEqual(prevBlock, block) ? prevBlock : block
 }

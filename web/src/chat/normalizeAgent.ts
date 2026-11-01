@@ -1065,6 +1065,29 @@ export function normalizeAgentRecord(
             }
         }
 
+        if (data.type === 'generated-page') {
+            const url = asString(data.url)
+            if (!url) return null
+            const uuid = asString(data.id) ?? messageId
+            const source = inlineMediaSourceFromWire(data.source)
+            return {
+                id: messageId,
+                localId,
+                createdAt,
+                role: 'agent',
+                isSidechain: false,
+                content: [{
+                    type: 'generated-page',
+                    url,
+                    title: asString(data.title ?? data.fileName ?? data.file_name) ?? undefined,
+                    uuid,
+                    parentUUID: null,
+                    source,
+                }],
+                meta
+            }
+        }
+
         if (data.type === 'error' && typeof data.message === 'string') {
             return {
                 id: messageId,

@@ -219,6 +219,7 @@ export function hasConversationMessageContent(value: unknown): boolean {
         return typeof data.callId === 'string' && data.callId.trim().length > 0
     }
     if (data.type === 'generated-image') return hasConversationBlock(data.imageId ?? data.image_id)
+    if (data.type === 'generated-page') return hasConversationBlock(data.url)
     if (data.type === 'plan' || data.type === 'plan_update') {
         const entries = data.entries ?? data.plan ?? data.update ?? data.items ?? data.steps
         return Array.isArray(entries) && entries.length > 0

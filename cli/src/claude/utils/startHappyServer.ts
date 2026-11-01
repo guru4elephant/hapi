@@ -132,6 +132,12 @@ function createHapiMcpServer(
         title: z.string().trim().min(1).max(255).optional().describe('Optional display title or filename'),
     });
 
+    const displayPageInputSchema: z.ZodTypeAny = z.object({
+        path: z.string().optional().describe('Absolute filesystem path of a local HTML file to display inline in the chat'),
+        url: z.string().optional().describe('Public URL of a web page to display inline in the chat'),
+        title: z.string().trim().min(1).max(255).optional().describe('Optional display title shown above the page preview'),
+    });
+
     const pingPeerInputSchema: z.ZodTypeAny = z.object({
         sessionIdPrefix: z.string().trim().min(1).describe(SESSION_ID_PREFIX_PARAM_DESCRIPTION),
         message: z.string().min(1).describe('Message text to deliver to the target session'),
@@ -316,6 +322,55 @@ function createHapiMcpServer(
             logger.debug('[hapiMCP] Failed to display media:', message);
             return {
                 content: [{ type: 'text' as const, text: `Failed to display media: ${message}` }],
+                isError: true,
+            };
+        }
+    });
+
+    mcp.registerTool<any, any>('display_page', {
+        description: 'Display an HTML file or web URL as an inline page preview in the current HAPI chat session. Pass either `path` (local HTML file) or `url` (public web URL).',
+        title: 'Display Page',
+        inputSchema: displayPageInputSchema,
+    }, async (args: { path?: string; url?: string; title?: string }) => {
+        logger.debug('[hapiMCP] Display page:', args);
+
+        try {
+            let pageUrl: string;
+
+            if (args.url) {
+                pageUrl = args.url;
+            } else if (args.path) {
+                const fs = await import('node:fs/promises');
+                const content = await fs.readFile(args.path, 'utf-8');
+                // Encode as data URL so the web client can iframe it without serving it
+                const encoded = Buffer.from(content, 'utf-8').toString('base64');
+                pageUrl = `data:text/html;base64,${encoded}`;
+            } else {
+                return {
+                    content: [{ type: 'text' as const, text: 'Either `path` or `url` must be provided.' }],
+                    isError: true,
+                };
+            }
+
+            const source: InlineMediaSource = { ingress: 'mcp', toolName: 'display_page' };
+
+            client.sendAgentMessage({
+                type: 'generated_page',
+                url: pageUrl,
+                fileName: args.title ?? (args.path ? args.path.split('/').pop() : undefined),
+                id: randomUUID(),
+                source,
+            } as any);
+
+            return {
+                content: [{ type: 'text' as const, text: `Page displayed: ${args.title ?? args.url ?? args.path}` }],
+                isError: false,
+            };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.debug('[hapiMCP] Failed to display page:', message);
+            return {
+                content: [{ type: 'text' as const, text: `Failed to display page: ${message}` }],
                 isError: true,
             };
         }
@@ -574,6 +629,7 @@ export async function startHappyServer(client: ApiSessionClient, options: StartH
         'display_image',
         'display_video',
         'display_media',
+        'display_page',
         ...(peerToolsDisabled ? [] : (['list_peers', 'ping_peer', 'inspect_peer'] as const)),
     ];
     if (options.skillLookup) {
