@@ -134,6 +134,29 @@ export function parseClaudeModelsProbeLine(line: string): ClaudeModelsProbeLineR
     return { kind: 'models', models: parseClaudeCatalog(asRecord(response.response)?.models) }
 }
 
+/**
+ * Fallback: scan stdout for an `assistant` message and extract the model field.
+ * Used when the CLI does not support the control_request/initialize protocol.
+ */
+export function parseClaudeModelsFromAssistantLine(line: string): ClaudeModelsProbeLineResult | null {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('{')) return null
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(trimmed)
+    } catch {
+        return null
+    }
+    const message = asRecord(parsed)
+    if (message?.type !== 'assistant') return null
+    const msg = asRecord(message.message)
+    const modelId = optionalString(msg?.model)
+    if (!modelId) return null
+    // Build a minimal single-entry catalog from the resolved model ID
+    const models: ClaudeModelSummary[] = [{ value: modelId, displayName: modelId }]
+    return { kind: 'models', models }
+}
+
 function runClaudeModelsProbe(executable: string): Promise<ListClaudeModelsResponse> {
     return new Promise((resolve, reject) => {
         const child = spawn(executable, [...CLAUDE_MODELS_PROBE_ARGS], {
@@ -148,6 +171,7 @@ function runClaudeModelsProbe(executable: string): Promise<ListClaudeModelsRespo
         let stdoutBuffer = ''
         let stderr = ''
         let settled = false
+        let controlProbeAnswered = false
 
         // The claude process stays up waiting for input, so every outcome
         // stops it before the caller sees a result.
@@ -186,18 +210,32 @@ function runClaudeModelsProbe(executable: string): Promise<ListClaudeModelsRespo
                 const line = stdoutBuffer.slice(0, newlineIndex)
                 stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1)
                 newlineIndex = stdoutBuffer.indexOf('\n')
+
+                // Primary path: control_request/initialize protocol
                 const result = parseClaudeModelsProbeLine(line)
-                if (result === null) continue
-                if (result.kind === 'error') {
-                    finish(() => reject(new Error(result.error)))
+                if (result !== null) {
+                    controlProbeAnswered = true
+                    if (result.kind === 'error') {
+                        finish(() => reject(new Error(result.error)))
+                        return
+                    }
+                    if (result.models.length === 0) {
+                        finish(() => reject(new Error('Claude reported no models')))
+                        return
+                    }
+                    finish(() => resolve({ success: true, availableModels: result.models }))
                     return
                 }
-                if (result.models.length === 0) {
-                    finish(() => reject(new Error('Claude reported no models')))
-                    return
+
+                // Fallback path: CLI version doesn't support control_request,
+                // extract the model ID from the first assistant message instead.
+                if (!controlProbeAnswered) {
+                    const fallback = parseClaudeModelsFromAssistantLine(line)
+                    if (fallback !== null && fallback.kind === 'models' && fallback.models.length > 0) {
+                        finish(() => resolve({ success: true, availableModels: fallback.models }))
+                        return
+                    }
                 }
-                finish(() => resolve({ success: true, availableModels: result.models }))
-                return
             }
         })
         child.stderr?.on('data', (chunk) => {
@@ -213,10 +251,19 @@ function runClaudeModelsProbe(executable: string): Promise<ListClaudeModelsRespo
         })
         // An early exit surfaces through 'close', not as an unhandled EPIPE.
         child.stdin?.on('error', () => { /* handled via close */ })
+        // Primary: control_request for CLIs that support the initialize protocol.
         child.stdin?.write(`${JSON.stringify({
             type: 'control_request',
             request_id: PROBE_REQUEST_ID,
             request: { subtype: 'initialize' },
+        })}\n`)
+        // Fallback: send a minimal user message so newer CLIs (which dropped the
+        // control_request protocol) respond with an assistant message that carries
+        // the resolved model ID in `message.model`.
+        child.stdin?.write(`${JSON.stringify({
+            type: 'user',
+            message: { role: 'user', content: [{ type: 'text', text: '.' }] },
+            request_id: 'hapi-model-fallback',
         })}\n`)
     })
 }

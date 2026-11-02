@@ -715,6 +715,8 @@ export default {
   'composer.typelessVoice': 'Voice input',
   'composer.typelessStop': 'Stop recording',
   'composer.typelessTranscribing': 'Transcribing…',
+  'composer.typelessHttpsRequired': 'HTTPS required for microphone',
+  'composer.typelessHttpsHint': 'Microphone access needs HTTPS. Open this page via an https:// URL to use voice input.',
   'pagePreview.expand': 'Show page',
   'pagePreview.collapse': 'Hide page',
   'pagePreview.openExternal': 'Open ↗',

@@ -713,6 +713,8 @@ export default {
   'composer.typelessVoice': '语音输入',
   'composer.typelessStop': '停止录音',
   'composer.typelessTranscribing': '正在转写…',
+  'composer.typelessHttpsRequired': '需要 HTTPS 才能使用麦克风',
+  'composer.typelessHttpsHint': '麦克风访问需要 HTTPS 环境。请通过 https:// 地址打开本页面使用语音输入。',
   'pagePreview.expand': '展开页面',
   'pagePreview.collapse': '收起页面',
   'pagePreview.openExternal': '在新标签打开 ↗',

@@ -687,6 +687,8 @@ export default {
   'composer.typelessVoice': 'Голосовой ввод',
   'composer.typelessStop': 'Остановить запись',
   'composer.typelessTranscribing': 'Транскрипция…',
+  'composer.typelessHttpsRequired': 'Требуется HTTPS для микрофона',
+  'composer.typelessHttpsHint': 'Доступ к микрофону требует HTTPS. Откройте страницу по адресу https:// для использования голосового ввода.',
   'pagePreview.expand': 'Показать страницу',
   'pagePreview.collapse': 'Скрыть страницу',
   'pagePreview.openExternal': 'Открыть ↗',

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { appendTranscript } from './useDictation'
 
-const TYPELESS_BASE = 'http://10.178.221.139:8090'
+const TYPELESS_BASE = '/asr'
 const POLL_INTERVAL_MS = 1200
 const POLL_TIMEOUT_MS = 60_000
 
