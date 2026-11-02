@@ -131,7 +131,12 @@ export function parseClaudeModelsProbeLine(line: string): ClaudeModelsProbeLineR
     if (response.subtype !== 'success') {
         return { kind: 'error', error: optionalString(response.error) ?? 'Claude rejected the model probe request' }
     }
-    return { kind: 'models', models: parseClaudeCatalog(asRecord(response.response)?.models) }
+    const models = parseClaudeCatalog(asRecord(response.response)?.models)
+    // Some CLI versions respond to control_request/initialize but without a
+    // models field (only commands). Treat an empty catalog as a miss so the
+    // fallback assistant-message path can still run.
+    if (models.length === 0) return null
+    return { kind: 'models', models }
 }
 
 /**
